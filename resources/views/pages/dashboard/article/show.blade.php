@@ -60,7 +60,7 @@
                         </div>
                         @isset($item->review)
                             <div class="input-style-1">
-                                <label for="review">Review Artikel (Opsional)</label>
+                                <label for="review">Review Artikel</label>
                                 {!! $item->review !!}
                             </div>
                         @endisset

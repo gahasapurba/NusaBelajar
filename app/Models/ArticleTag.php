@@ -20,6 +20,11 @@ class ArticleTag extends Model
         'article_tag_tagged_articles',
     ];
 
+    public function getRouteKeyName()
+    {
+        return 'slug';
+    }
+
     public function article_tag_tagged_articles()
     {
         return $this->belongsToMany(Article::class, 'articles_article_tags', 'tag_article_tags_id', 'article_articles_id')->withTrashed();

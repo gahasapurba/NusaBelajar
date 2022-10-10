@@ -35,8 +35,9 @@ Route::get('auth/google/callback', [AuthController\LoginController::class, 'hand
     Route::resource('aboutus', Homepage\AboutUsController::class);
     
     // Artikel
-    Route::get('article/{article}/category', [Homepage\ArticleController::class, 'category'])->name('article.category');
     Route::resource('article', Homepage\ArticleController::class);
+    Route::get('article/{article}/category', [Homepage\ArticleController::class, 'category'])->name('article.category');
+    Route::get('article/{article}/tag', [Homepage\ArticleController::class, 'tag'])->name('article.tag');
     
     // Hubungi Kami
     Route::resource('contact', Homepage\ContactController::class);
@@ -212,6 +213,9 @@ Route::middleware(['auth','verified','isAdmin'])->group(function () {
 
         Route::get('article/trash', [Admin\ArticleController::class, 'trash'])->name('article.trash');
         Route::resource('article', Admin\ArticleController::class);
+        Route::put('article/{article}/review',[Admin\ArticleController::class, 'review'])->name('article.review');
+        Route::get('article/{article}/feature', [Admin\ArticleController::class, 'feature'])->name('article.feature');
+        Route::get('article/{article}/unfeature', [Admin\ArticleController::class, 'unfeature'])->name('article.unfeature');
         Route::get('article/{article}/restore', [Admin\ArticleController::class, 'restore'])->name('article.restore');
         Route::delete('article/{article}/kill', [Admin\ArticleController::class, 'kill'])->name('article.kill');
 

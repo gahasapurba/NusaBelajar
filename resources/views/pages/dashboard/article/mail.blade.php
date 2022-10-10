@@ -1,11 +1,7 @@
 @component('mail::message')
 # Peninjauan Artikel Anda
 
-@if ($item->is_accepted)
-Selamat, artikel anda telah diterima untuk ditampilkan di website NusaBelajar. Segera lihat detail artikel melalui tombol di bawah
-@else
-Maaf, artikel anda telah ditolak untuk ditampilkan di website NusaBelajar. Segera lihat detail artikel melalui tombol di bawah
-@endif
+Artikel anda telah selesai ditinjau oleh administrator. Segera lihat detail hasil peninjauan artikel melalui tombol di bawah
 
 @component('mail::button', ['url' => route('dashboard.article.show', $hash->encodeHex($item->id))])
 Detail Artikel

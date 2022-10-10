@@ -31,6 +31,11 @@ class Article extends Model
         'article_comments',
     ];
 
+    public function getRouteKeyName()
+    {
+        return 'slug';
+    }
+
     public function article_comments()
     {
         return $this->hasMany(ArticleComment::class, 'article_articles_id');

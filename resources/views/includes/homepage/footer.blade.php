@@ -38,7 +38,7 @@
                     <div class="single-footer sm-custom-border recent-blog">
                         <h3>Artikel Terbaru</h3>
                         @php
-                            $articles = App\Models\Article::latest()->limit(3)->get();
+                            $articles = App\Models\Article::where('is_accepted', true)->latest()->limit(3)->get();
                         @endphp
                         <ul>
                             @forelse ($articles as $article)
@@ -51,7 +51,7 @@
                             @empty
                                 <li>
                                     <a href="#">
-                                        Tidak ada artikel
+                                        Tidak Ada Artikel
                                     </a>
                                 </li>
                             @endforelse

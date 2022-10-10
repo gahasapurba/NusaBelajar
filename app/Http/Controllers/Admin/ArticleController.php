@@ -5,17 +5,18 @@ namespace App\Http\Controllers\Admin;
 use App\Models\User;
 use Hashids\Hashids;
 use App\Models\Article;
+use App\Models\ArticleTag;
 use Illuminate\Support\Str;
 use App\Models\Notification;
 use Illuminate\Http\Request;
 use App\Models\ArticleCategory;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Auth;
+use App\Http\Requests\ArticleRequest\ReviewArticleRequest;
 use Illuminate\Support\Facades\Mail;
-use App\Http\Requests\ArticleRequest;
-use App\Mail\User\Article as UserArticle;
 use Illuminate\Support\Facades\Storage;
 use Yajra\DataTables\Facades\DataTables;
+use App\Mail\User\Article as UserArticle;
+use App\Http\Requests\ArticleRequest\UpdateArticleRequest;
 
 class ArticleController extends Controller
 {
@@ -40,10 +41,10 @@ class ArticleController extends Controller
                 ->addColumn('status', function (Article $article) {
                     if (!$article->is_accepted && !$article->is_rejected) {
                         return '<span class="status-btn warning-btn">Proses Peninjauan</span>';
+                    } else if ($article->is_accepted && !$article->is_rejected && $article->is_featured) {
+                        return '<span class="status-btn success-btn">Artikel Disetujui</span>&nbsp;&nbsp;<span class="status-btn secondary-btn">Artikel Direkomendasikan</span>';
                     } else if ($article->is_accepted && !$article->is_rejected) {
                         return '<span class="status-btn success-btn">Artikel Disetujui</span>';
-                    } else if ($article->is_accepted && !$article->is_rejected && $article->is_featured) {
-                        return '<span class="status-btn success-btn">Artikel Disetujui</span><span class="status-btn secondary-btn">Artikel Direkomendasikan</span>';
                     } else if (!$article->is_accepted && $article->is_rejected) {
                         return '<span class="status-btn danger-btn">Artikel Ditolak</span>';
                     } else {
@@ -127,6 +128,7 @@ class ArticleController extends Controller
 
         return view('pages.admin.article.show', [
             'item' => $item,
+            'hash' => $hash,
         ]);
     }
 
@@ -141,11 +143,13 @@ class ArticleController extends Controller
         $hash = new Hashids('', 10);
         $item = Article::findOrFail($hash->decodeHex($id));
         $article_categories = ArticleCategory::all();
+        $article_tags = ArticleTag::all();
 
         return view('pages.admin.article.edit', [
             'hash' => $hash,
             'item' => $item,
             'article_categories' => $article_categories,
+            'article_tags' => $article_tags,
         ]);
     }
 
@@ -156,7 +160,7 @@ class ArticleController extends Controller
      * @param  int  $id
      * @return \Illuminate\Http\Response
      */
-    public function update(ArticleRequest $request, $id)
+    public function update(UpdateArticleRequest $request, $id)
     {
         $hash = new Hashids('', 10);
         $item = Article::findOrFail($hash->decodeHex($id));
@@ -245,72 +249,107 @@ class ArticleController extends Controller
         return redirect()->route('admin.article.index')->with('success', 'Artikel Berhasil Diubah!');
     }
 
-    public function accept(ArticleRequest $request, $id)
+    public function review(ReviewArticleRequest $request, $id)
     {
         $hash = new Hashids('', 10);
-        $item = Article::all()->where('is_accepted', false)->where('is_rejected', false)->findOrFail($hash->decodeHex($id));
+        $item = Article::all()->where('is_accepted', false)->where('is_rejected', false)->find($hash->decodeHex($id));
+        $receiver = User::findOrFail($item->author_users_id);
 
-        if ($request->review) {
-            $data = [
-                'is_accepted' => true,
-                'review' => $request->review,
-            ];
-        } else {
-            $data = [
-                'is_accepted' => true,
-            ];
+        switch ($request->input('action')) {
+            case 'accept':
+                $data = [
+                    'is_accepted' => true,
+                    'review' => $request->review,
+                ];
+
+                Notification::create([
+                    'receiver_users_id' => $receiver->id,
+                    'type' => 'dashboard.article.index',
+                    'title' => 'Peninjauan Artikel Anda',
+                    'subtitle' => 'telah diterima',
+                    'content' => 'Selamat, artikel anda telah diterima untuk ditampilkan di website NusaBelajar',
+                ]);
+                Mail::to($receiver->email)->send(new UserArticle($hash, $item));
+
+                break;
+
+            case 'reject':
+                $data = [
+                    'is_rejected' => true,
+                    'review' => $request->review,
+                ];
+
+                Notification::create([
+                    'receiver_users_id' => $receiver->id,
+                    'type' => 'dashboard.article.index',
+                    'title' => 'Peninjauan Artikel Anda',
+                    'subtitle' => 'telah ditolak',
+                    'content' => 'Maaf, artikel anda telah ditolak untuk ditampilkan di website NusaBelajar',
+                ]);
+                Mail::to($receiver->email)->send(new UserArticle($hash, $item));
+                
+                break;
         }
 
         $item->update($data);
-        $receiver = User::findOrFail($item->author_users_id);
 
-        Notification::create([
-            'receiver_users_id' => $receiver->id,
-            'type' => 'dashboard.article.index',
-            'title' => 'Peninjauan Artikel Anda',
-            'subtitle' => 'telah diterima',
-            'content' => 'Selamat, artikel anda telah diterima untuk ditampilkan di website NusaBelajar',
-        ]);
-        Mail::to($receiver->email)->send(new UserArticle($hash, $item));
-
-        return redirect()->route('admin.article.index')->with('success', 'Artikel Berhasil Diterima!');
+        return redirect()->route('admin.article.index')->with('success', 'Artikel Berhasil Ditinjau!');
     }
+
+    // public function accept(ReviewArticleRequest $request, $id)
+    // {
+    //     $hash = new Hashids('', 10);
+    //     $item = Article::all()->where('is_accepted', false)->where('is_rejected', false)->find($hash->decodeHex($id));
+
+    //     $data = [
+    //         'is_accepted' => true,
+    //         'review' => $request->review,
+    //     ];
+
+    //     $item->update($data);
+    //     $receiver = User::findOrFail($item->author_users_id);
+
+    //     Notification::create([
+    //         'receiver_users_id' => $receiver->id,
+    //         'type' => 'dashboard.article.index',
+    //         'title' => 'Peninjauan Artikel Anda',
+    //         'subtitle' => 'telah diterima',
+    //         'content' => 'Selamat, artikel anda telah diterima untuk ditampilkan di website NusaBelajar',
+    //     ]);
+    //     Mail::to($receiver->email)->send(new UserArticle($hash, $item));
+
+    //     return redirect()->route('admin.article.index')->with('success', 'Artikel Berhasil Diterima!');
+    // }
     
-    public function reject(ArticleRequest $request, $id)
+    // public function reject(ReviewArticleRequest $request, $id)
+    // {
+    //     $hash = new Hashids('', 10);
+    //     $item = Article::all()->where('is_accepted', false)->where('is_rejected', false)->find($hash->decodeHex($id));
+
+    //     $data = [
+    //         'is_rejected' => true,
+    //         'review' => $request->review,
+    //     ];
+
+    //     $item->update($data);
+    //     $receiver = User::findOrFail($item->author_users_id);
+
+    //     Notification::create([
+    //         'receiver_users_id' => $receiver->id,
+    //         'type' => 'dashboard.article.index',
+    //         'title' => 'Peninjauan Artikel Anda',
+    //         'subtitle' => 'telah ditolak',
+    //         'content' => 'Maaf, artikel anda telah ditolak untuk ditampilkan di website NusaBelajar',
+    //     ]);
+    //     Mail::to($receiver->email)->send(new UserArticle($hash, $item));
+
+    //     return redirect()->route('admin.article.index')->with('success', 'Artikel Berhasil Ditolak!');
+    // }
+    
+    public function feature($id)
     {
         $hash = new Hashids('', 10);
-        $item = Article::all()->where('is_accepted', false)->where('is_rejected', false)->findOrFail($hash->decodeHex($id));
-
-        if ($request->review) {
-            $data = [
-                'is_rejected' => true,
-                'review' => $request->review,
-            ];
-        } else {
-            $data = [
-                'is_rejected' => true,
-            ];
-        }
-
-        $item->update($data);
-        $receiver = User::findOrFail($item->author_users_id);
-
-        Notification::create([
-            'receiver_users_id' => $receiver->id,
-            'type' => 'dashboard.article.index',
-            'title' => 'Peninjauan Artikel Anda',
-            'subtitle' => 'telah ditolak',
-            'content' => 'Maaf, artikel anda telah ditolak untuk ditampilkan di website NusaBelajar',
-        ]);
-        Mail::to($receiver->email)->send(new UserArticle($hash, $item));
-
-        return redirect()->route('admin.article.index')->with('success', 'Artikel Berhasil Ditolak!');
-    }
-    
-    public function featured($id)
-    {
-        $hash = new Hashids('', 10);
-        $item = Article::all()->where('is_accepted')->where('is_rejected', false)->findOrFail($hash->decodeHex($id));
+        $item = Article::all()->where('is_accepted')->where('is_rejected', false)->find($hash->decodeHex($id));
 
         $data = [
             'is_featured' => true,
@@ -319,6 +358,20 @@ class ArticleController extends Controller
         $item->update($data);
 
         return redirect()->route('admin.article.index')->with('success', 'Artikel Berhasil Direkomendasikan!');
+    }
+    
+    public function unfeature($id)
+    {
+        $hash = new Hashids('', 10);
+        $item = Article::all()->where('is_accepted')->where('is_featured')->find($hash->decodeHex($id));
+
+        $data = [
+            'is_featured' => false,
+        ];
+
+        $item->update($data);
+
+        return redirect()->route('admin.article.index')->with('success', 'Artikel Berhasil Dibatalkan Rekomendasinya!');
     }
 
     /**
@@ -352,10 +405,10 @@ class ArticleController extends Controller
                 ->addColumn('status', function (Article $article) {
                     if (!$article->is_accepted && !$article->is_rejected) {
                         return '<span class="status-btn warning-btn">Proses Peninjauan</span>';
+                    } else if ($article->is_accepted && !$article->is_rejected && $article->is_featured) {
+                        return '<span class="status-btn success-btn">Artikel Disetujui</span>&nbsp;&nbsp;<span class="status-btn secondary-btn">Artikel Direkomendasikan</span>';
                     } else if ($article->is_accepted && !$article->is_rejected) {
                         return '<span class="status-btn success-btn">Artikel Disetujui</span>';
-                    } else if ($article->is_accepted && !$article->is_rejected && $article->is_featured) {
-                        return '<span class="status-btn success-btn">Artikel Disetujui</span><span class="status-btn secondary-btn">Artikel Direkomendasikan</span>';
                     } else if (!$article->is_accepted && $article->is_rejected) {
                         return '<span class="status-btn danger-btn">Artikel Ditolak</span>';
                     } else {

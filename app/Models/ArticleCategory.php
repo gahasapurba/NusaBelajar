@@ -20,6 +20,11 @@ class ArticleCategory extends Model
         'article_category_categoried_articles',
     ];
 
+    public function getRouteKeyName()
+    {
+        return 'slug';
+    }
+
     public function article_category_categoried_articles()
     {
         return $this->hasMany(Article::class, 'category_article_categories_id');

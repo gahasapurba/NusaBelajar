@@ -31,7 +31,7 @@ class StoreArticleRequest extends FormRequest
             'thumbnail' => 'required|image|max:10240',
             'file' => 'file|max:102400',
             'quote' => 'nullable|string|min:3',
-            'review' => 'nullable|string|min:3',
+            'review' => 'nullable|string|min:10',
         ];
     }
 }

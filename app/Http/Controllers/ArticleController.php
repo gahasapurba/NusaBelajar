@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use Hashids\Hashids;
 use App\Models\Article;
-use App\Models\ArticleCategory;
 use App\Models\ArticleTag;
 use Illuminate\Http\Request;
+use App\Models\ArticleComment;
+use App\Models\ArticleCategory;
 
 class ArticleController extends Controller
 {
@@ -58,11 +60,17 @@ class ArticleController extends Controller
      */
     public function show($slug)
     {
-        $item = Article::where('is_accepted')->where('slug', $slug)->firstOrFail();
+        $hash = new Hashids('', 10);
+        $item = Article::where('is_accepted', true)->where('slug', $slug)->first();
+        $article_comment_count = ArticleComment::where('article_articles_id', $item->id)->count();
+        $article_comments = ArticleComment::where('article_articles_id', $item->id)->latest()->get();
         $item->increment('view');
 
         return view('pages.homepage.article.show', [
+            'hash' => $hash,
             'item' => $item,
+            'article_comment_count' => $article_comment_count,
+            'article_comments' => $article_comments,
         ]);
     }
 
@@ -101,6 +109,16 @@ class ArticleController extends Controller
     }
 
     public function category($slug)
+    {
+        $item = Article::where('is_accepted')->where('slug', $slug)->firstOrFail();
+        $item->increment('view');
+
+        return view('pages.homepage.article.show', [
+            'item' => $item,
+        ]);
+    }
+    
+    public function tag($slug)
     {
         $item = Article::where('is_accepted')->where('slug', $slug)->firstOrFail();
         $item->increment('view');
